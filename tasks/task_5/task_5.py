@@ -10,6 +10,8 @@ from tasks.task_4.task_4 import EmbeddingClient
 from langchain_core.documents import Document
 from langchain.text_splitter import CharacterTextSplitter
 from langchain_community.vectorstores import Chroma
+import chromadb
+chroma_client = chromadb.Client()
 
 class ChromaCollectionCreator:
     def __init__(self, processor, embed_model):
@@ -57,7 +59,17 @@ class ChromaCollectionCreator:
         # Use a TextSplitter from Langchain to split the documents into smaller text chunks
         # https://python.langchain.com/docs/modules/data_connection/document_transformers/character_text_splitter
         # [Your code here for splitting documents]
-        
+        text_splitter = CharacterTextSplitter(
+            separator="\n\n",
+            chunk_size=1000,
+            chunk_overlap=200,
+            length_function=len,
+            is_separator_regex=False,
+        )
+
+        aux_array = list(map(lambda page: page.page_content, self.processor.pages))
+        texts = text_splitter.create_documents(aux_array)
+
         if texts is not None:
             st.success(f"Successfully split pages to {len(texts)} documents!", icon="✅")
 
@@ -66,6 +78,8 @@ class ChromaCollectionCreator:
         # Create a Chroma in-memory client using the text chunks and the embeddings model
         # [Your code here for creating Chroma collection]
         
+        self.db = Chroma.from_documents(texts, self.embed_model.client, persist_directory="./chroma_db")
+
         if self.db:
             st.success("Successfully created Chroma Collection!", icon="✅")
         else:
@@ -86,6 +100,9 @@ class ChromaCollectionCreator:
                 st.error("No matching documents found!", icon="🚨")
         else:
             st.error("Chroma Collection has not been created!", icon="🚨")
+    
+    def as_retriever(self):
+        return self.db.as_retriever()
 
 if __name__ == "__main__":
     processor = DocumentProcessor() # Initialize from Task 3
@@ -93,7 +110,7 @@ if __name__ == "__main__":
     
     embed_config = {
         "model_name": "textembedding-gecko@003",
-        "project": "YOUR PROJECT ID HERE",
+        "project": "vertex-ai-project-429205",
         "location": "us-central1"
     }
     
